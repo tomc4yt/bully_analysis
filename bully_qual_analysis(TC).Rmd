@@ -1,0 +1,139 @@
+---
+title: "bully_qual_analysis"
+author: "Tom Caputo"
+date: "February 2, 2016"
+output: html_document
+---
+
+```{r setup}
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(plyr)
+library(tm)
+library(SnowballC)
+library(cluster)  
+setwd("C:/Users/Tom/Documents/github/Bullying")
+
+bullyData <- read.csv("data/QualStudy1.csv", stringsAsFactors = FALSE)
+
+# Combine all stories
+full_story <- paste(bullyData$Story, collapse = " ")
+full_story <- tolower(full_story)
+# Split into sentances
+sent_story <- unlist(strsplit(full_story, split = "\\."))
+
+# Extract word list
+
+  # Remove periods and commas
+word_story <- gsub(x = full_story, pattern = "\\.|,|\\]|\\[|\\)|\\(|!|\\{|\\}\\:|\\;", replacement = "")
+
+  # remove double spaces
+for (i in seq(5)){
+  word_story <- gsub(x = word_story, pattern = "  ", replacement = " ")
+}
+  # remove quotes
+
+word_story <- unlist(strsplit(word_story, split = " "))
+
+
+word_story <- gsub(x = word_story, pattern = '"', replacement = "")
+word_story <- gsub(x = word_story, pattern = "'", replacement = "")
+
+
+word_freq <- data.frame(table(word_story))
+names(word_freq) <- c("word", "frequency")
+word_freq <- arrange(word_freq, desc(frequency))
+
+```
+
+## Data Pre-Processing
+
+```{r}
+docs <- Corpus(VectorSource(sent_story))
+docs <- tm_map(docs, removePunctuation)  
+docs <- tm_map(docs, tolower)
+docs <- tm_map(docs, removeWords, stopwords("english"))
+docs <- tm_map(docs, stemDocument)   
+docs <- tm_map(docs, PlainTextDocument)  
+
+
+```
+
+## Document Staging
+
+```{r}
+# Convert documents to document matrix
+dtm <- DocumentTermMatrix(docs)   
+dtm
+# Transpose Matrix
+tdm <- TermDocumentMatrix(docs)   
+tdm   
+
+```
+
+## Data Exploration
+
+### Frequency
+
+```{r}
+
+freq <- colSums(as.matrix(dtm))   
+freq <- data.frame(freq)
+freq$word <- rownames(freq)
+freq <- arrange(freq, desc(freq))
+
+
+freq$word <- factor(freq$word, levels = freq[order(freq$freq), "word"]) 
+
+ggplot(data = freq[0:30, ]) +
+  geom_bar(aes(x = word, y = freq), stat = "identity") +
+  ylab("Frequency") + 
+  xlab("Word") + 
+  ggtitle("30 Most Frequenty Occuring Words") + 
+  theme(text = element_text(size = 20), 
+        axis.text.x = element_text(angle = 90, hjust = 1)) 
+
+  
+
+
+
+
+```
+
+### Most common words
+
+```{r}
+freq
+
+```
+
+### Heirarchal clustering
+```{r}
+
+ 
+d <- dist(t(dtm), method="euclidian")   
+fit <- hclust(d=d, method="ward")   
+fit   
+
+plot(fit, hang = -1)   
+
+plot.new()
+plot(fit, hang = -1)
+groups <- cutree(fit, k = 20)   # "k=" defines the number of clusters you are using   
+rect.hclust(fit, k=5, border="red") # draw dendogram with red borders around the 5 clusters   
+
+```
+
+### K-means Clustering
+Partitions the data into k clusters
+
+```{r}
+
+library(fpc)   
+d <- dist(t(dtmss), method="euclidian")   
+kfit <- kmeans(d, 2)   
+
+```
+
+
